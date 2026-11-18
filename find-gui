@@ -1,6 +1,7 @@
 #!/bin/bash
 # find-gui - search /home for a word or letters, in file names and file contents
 #
+# Hidden files/folders and anything deeper than $depth levels are skipped.
 # Type what to look for (e.g. darkidol), press Search; every match is listed.
 # Double-click a result to open it. Case is ignored. Search again or Close to quit.
 
@@ -17,6 +18,7 @@ tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
 term=""
+depth=6   # how many folder levels below /home to search
 while true; do
     term=$(yad --entry --center --width=420 --title="Find" \
         --text="find in /home this word or series of letters" \
@@ -24,14 +26,20 @@ while true; do
     term=${term//|/}
     [ -n "${term// /}" ] || continue
 
+    # glob-escape the term for -iname; skip hidden files/folders, caches and anything deeper than $depth
+    glob=$(printf '%s' "$term" | sed 's/[][*?\\]/\\&/g')
     {
-        find /home -iname "*$term*" 2>/dev/null | sed 's/^/name\t/'
-        grep -rIil -- "$term" /home 2>/dev/null | sed 's/^/content\t/'
+        find /home -maxdepth "$depth" \( -name '.*' -o -name node_modules \) -prune -o \
+            -iname "*$glob*" -print 2>/dev/null | sed 's/^/name\t/'
+        find /home -maxdepth "$depth" \( -name '.*' -o -name node_modules \) -prune -o \
+            -type f -size -5M -exec grep -IilF -- "$term" {} + 2>/dev/null | sed 's/^/content\t/'
     } > "$tmp/out" &
     job=$!
     ( while kill -0 $job 2>/dev/null; do echo "#Searching..."; sleep 0.3; done ) |
         yad --progress --pulsate --auto-close --no-buttons --center --width=300 \
             --title="Find" --text="Searching /home..." 2>/dev/null
+    # progress window closed early = cancel the search
+    if kill -0 $job 2>/dev/null; then pkill -P $job; kill $job 2>/dev/null; wait $job 2>/dev/null; continue; fi
     wait $job
 
     if [ -s "$tmp/out" ]; then

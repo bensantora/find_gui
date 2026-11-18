@@ -16,7 +16,13 @@ Type a word or series of letters; every file in `/home` whose name or contents c
 
 - `name` means the file name contains the text; `content` means the text is inside the file.
 - Case is ignored. Binary files are skipped when searching contents.
-- Only `/home` is searched. To search somewhere else, change the two `/home` paths in the script.
+- Only `/home` is searched, up to 6 folder levels deep (`depth=` near the top of the script).
+  Hidden files and folders (caches, config) and `node_modules` are skipped, and files over 5 MB
+  are not searched for content. That keeps searches fast and the results readable.
+- Closing the progress window cancels a search.
+- To search somewhere else, change the `/home` paths in the script.
+
+More Linux tools and write-ups by Ben Santora: [truelinux.pages.dev](https://truelinux.pages.dev/)
 
 ## License
 
